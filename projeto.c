@@ -6,7 +6,7 @@ void ini_P1_P2(void){
     P1DIR = ~(BIT2 + BIT4 + BIT6 + BIT7); // = BIT0 + BIT1 + BIT3 + BIT5
     P1REN = BIT6 + BIT7;
     P1OUT = BIT6 + BIT7; //habilitando pull-up bits 6 e 7
-    P1ES = BIT6 + BIT7; //*** Ver com o professor se há a necessidade de setar as duas.
+    P1IES = BIT6 + BIT7; //*** Ver com o professor se há a necessidade de setar as duas.
     P1IFG = 0;
     //ADC10AE = BIT2 + BIT4;
 
@@ -17,15 +17,11 @@ void ini_P1_P2(void){
     Mudança de função dos pinos 2.1, 2.4, 2.6 e 2.7
     */
     P2DIR = BIT1 + BIT2 + BIT3 + BIT4 + BIT7;
-	P2REN = BIT0 + BIT6;
-	P2OUT = BIT0 + BIT6;
-    P2SEL = BIT1 + BIT4 + BIT6 + BIT7;
+    P2REN = BIT0 + BIT6;
+    P2OUT = BIT0 + BIT6;
+    P2OUT ^= BIT1 + BIT4 + BIT2 + BIT3 + BIT7;
+    P2SEL = BIT1 + BIT4;
     P2IFG = 0;
-
-}
-
-void main(void) {
-    ini_P1_P2();
 
 }
 
@@ -40,3 +36,10 @@ void ini_uCon(void){
     while(BCSCTL3 & LFXT1OF);
     __enable_interrupt();
 }
+
+void main(void) {
+    ini_P1_P2();
+    ini_uCon();
+}
+
+
