@@ -4,6 +4,7 @@
 void ini_P1_P2(void);
 void ini_uCon(void);
 void ini_Timer0(void);
+void ini_Timer1(void);
 
 
 void main(void)
@@ -11,6 +12,7 @@ void main(void)
     ini_P1_P2();
     ini_uCon();
     ini_Timer0();
+    ini_Timer1();
 }
 
 void ini_P1_P2(void){
@@ -88,4 +90,32 @@ void ini_Timer0(void){
 // Modulo 2
     TA0CCTL2 = CCIE;
     TA0CCR2 = 4914;
+}
+
+void ini_Timer1(void){
+    /* Timer0 para gerar PWM para controle dos LEDs
+     *   - Frequencia/periodo: 600 Hz
+     *   - RC.: 0% inicial
+     *
+     * CONTADOR:
+     *      - Clock: SMCLK ~ 2MHZ
+     *          - Fdiv: 1
+     *      - Int.: Desabilitada
+     *      - Modo: UP
+     *
+     * MODULO 0: -> ref. de periodo/freq. do PWM
+     *      - Funcao: comparacao
+     *      - Int.: desabilitada
+     *      - TA0CCR0 = (2e6 / 600) -1 = 3332
+     *
+     * MODULO 1: -> Gerar o sinal
+     *      - Funcao: comparacao
+     *      - Int.: desabilitada
+     *      - Modo de saida: 7 (reset/set)
+     *      - TA0CCR1 = 0;
+     */
+    TA1CTL = TASSEL1 + MC0;
+    TA1CCTL1 = OUTMOD0 + OUTMOD1 + OUTMOD2 + OUT;
+    TA1CCR0 = 3332;
+    TA1CCR1 = 0;
 }
