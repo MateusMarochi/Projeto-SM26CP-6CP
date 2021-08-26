@@ -133,7 +133,8 @@ void ini_Timer1(void){ //********** AJEITAR PARA 2 PWM!!
     TA1CTL = TASSEL1 + ID1 + MC0;
     TA1CCTL1 = OUTMOD0 + OUTMOD1 + OUTMOD2 + OUT;
     TA1CCR0 = 3332;
-    TA1CCR1 = 0;
+    TA1CCR1 = 0; //PWM1
+    TA2CCR2 = 0; //PWM2
 }
 
 void ini_ADC10 (void){ //*******************Mandar email pro professor ver como faz pra 2 entrada analógica
