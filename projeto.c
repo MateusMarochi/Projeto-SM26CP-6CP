@@ -16,10 +16,31 @@ void main(void)
     ini_uCon();
     ini_Timer0();
     ini_Timer1();
+    ini_ADC10(void);
 
-    while(1){
+    /* Loop da main, continuamente ajustando a luminosidade dos setores à referência:
+     */
+    do{
+        if ((set_point1 - 15) > media_movel1 && TA1CCR1+99<=3333) //se a media movel 1 estiver abaixo do desejado
+        {
+            TA1CCR1 = TA1CCR1 + 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
+        }
+        else if ((set_point1 + 15) < media_movel1 && TA1CCR1-99>=0) //se não, se a media movel 1 estiver acima do desejado
+        {
+            TA1CCR1 = TA1CCR1 - 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
+        }
+
         
-    }
+        if ((set_point2 - 15) > media_movel2 && TA1CCR2+99<=3333) //se a media movel 2 estiver abaixo do desejado
+        {
+            TA1CCR2 = TA1CCR2 + 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
+        }
+        else if ((set_point2 + 15) < media_movel2 && TA1CCR2-99>=0) //se não, se a media movel 2 estiver acima do desejado
+        {
+            TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
+        }
+
+    }while(1)
 
 }
 
@@ -108,7 +129,7 @@ void ini_Timer0(void){
     TA0CCR2 = 4914;
 }
 
-void ini_Timer1(void){ //********** AJEITAR PARA 2 PWM!!
+void ini_Timer1(void){
     /* Timer0 para gerar PWM para controle dos LEDs
      *   - Frequencia/periodo: 600 Hz
      *   - RC.: 0% inicial
@@ -129,6 +150,10 @@ void ini_Timer1(void){ //********** AJEITAR PARA 2 PWM!!
      *      - Int.: desabilitada
      *      - Modo de saida: 7 (reset/set)
      *      - TA0CCR1 = 0;
+     * 
+     * 
+     * CÁLCULO PASSO PWM:
+     *      - delta_pwm = 3% de 3333 => passo = 0,03 * 3333 - 1 = 99
      */
     TA1CTL = TASSEL1 + ID1 + MC0;
     TA1CCTL1 = OUTMOD0 + OUTMOD1 + OUTMOD2 + OUT;
@@ -137,7 +162,7 @@ void ini_Timer1(void){ //********** AJEITAR PARA 2 PWM!!
     TA2CCR2 = 0; //PWM2
 }
 
-void ini_ADC10 (void){ //*******************Mandar email pro professor ver como faz pra 2 entrada analógica
+void ini_ADC10 (void){
     
     /* Inicializacao do ADC10
      *
@@ -157,9 +182,9 @@ void ini_ADC10 (void){ //*******************Mandar email pro professor ver como 
      */
 
     ADC10CTL0 = SREF0 + ADC10SHT0 + ADC10SHT1 + REF2_5V + REFON + ADC10ON + ADC10IE;
-    ADC10CTL1 = INCH1 + SHS0; 
+    ADC10CTL1 = INCH1 + SHS0; //inicialmente a entrada A2 é selecionada
     ADC10DTC0 = 0;
-    ADC10DTC1 = 8;
+    ADC10DTC1 = 8; //modo 8 amostras consecutivas
     ADC10SA = &ADC10_vetor[0];
     ADC10AE0 = BIT2 + BIT4;
     ADC10CTL0 |= ENC;
