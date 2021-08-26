@@ -7,8 +7,8 @@ void ini_Timer0(void);
 void ini_Timer1(void);
 void ini_ADC10(void);
 
-unsigned int ADC10_vetor[8], media_vector[16], media_samps=0, media_movel=0;
-unsigned char i, indice_mv=0;
+unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2;
+unsigned char i=0, indice_mv=0, estagio=0;
 
 void main(void)
 {
@@ -144,7 +144,7 @@ void ini_ADC10 (void){ //*******************Mandar email pro professor ver como 
      *   - Clock: ADC10OSC = 6,13 MHz
      *   - Taxa conv. max.:  ~ 200 ksps (3,7 MHz a 6,3 MHz)
      *   - Tensao de REF:  Vcc = 2,5 V
-     *   - Entrada: A2 E A4
+     *   - Entrada: A2 e A4. Inicia fazendo amostragem de A2 e em sequência de A4.
      *   - Tempo de amostragem: 150 ms (Gatilho por Timer 1)
      *   - Ts (Sample Time): Pot. 10 kohms
      *        -> (Rs + Ri).Ci.ln(2^11) = (10k + 2k).27pf.ln(2^11) = 2,5 us
@@ -178,19 +178,53 @@ __interrupt void RTI_ADC10(void){
     }
     media_samps = soma >> 3;
     
-    media_vector[indice_mv]=media_samps;
-
-    soma=0;
-    //calculo da nova media movel
-    for(i=0;i<16;i++)
+    switch(estagio)
     {
-        soma = soma + media_vector[i];
+        case 0:
+
+            media_vector1[indice_mv]=media_samps;
+           
+            soma=0;
+
+            //calculo da nova media movel 1
+            for(i=0;i<16;i++)
+            {
+                soma = soma + media_vector1[i];
+            }
+            media_movel1 = soma >> 4;
+
+            //no final da amostragem de A2, é feita uma amostragem da entrada A4:
+            estagio++;
+            ADC10CTL1 &= ~INCH1;
+            ADC10CTL1 |= INCH2; 
+        
+            ADC10SA = &ADC10_vetor[0];
+            ADC10CTL0 |= ENC;
+
+            break;
+
+        case 1:
+
+            media_vector2[indice_mv]=media_samps;
+
+            //atualizando indice dos vetores de médias:
+            if(indice_mv<=14)
+                indice_mv++;
+            else
+                indice_mv=0;
+
+            soma=0;
+
+            //calculo da nova media movel 2
+            for(i=0;i<16;i++)
+            {
+                soma = soma + media_vector2[i];
+            }
+            media_movel2 = soma >> 4;
+
+            break;
+
     }
-    media_movel = soma >> 4;
-
-
-    ADC10SA = &ADC10_vetor[0];
-    ADC10CTL0 |= ENC;
 }
 
 #pragma vector=TIMER0_A0_VECTOR
