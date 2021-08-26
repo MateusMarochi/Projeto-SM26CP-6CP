@@ -7,7 +7,7 @@ void ini_Timer0(void);
 void ini_Timer1(void);
 void ini_ADC10(void);
 
-unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2;
+unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2, set_point1=0, set_point2=0;
 unsigned char i=0, indice_mv=0, estagio=0;
 
 void main(void)
@@ -16,25 +16,30 @@ void main(void)
     ini_uCon();
     ini_Timer0();
     ini_Timer1();
-    ini_ADC10(void);
+    ini_ADC10();
 
     /* Loop da main, continuamente ajustando a luminosidade dos setores à referência:
      */
     do{
+        //ajuste do setor 1:
+
         if ((set_point1 - 15) > media_movel1 && TA1CCR1+99<=3333) //se a media movel 1 estiver abaixo do desejado
         {
             TA1CCR1 = TA1CCR1 + 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
+
         else if ((set_point1 + 15) < media_movel1 && TA1CCR1-99>=0) //se não, se a media movel 1 estiver acima do desejado
         {
             TA1CCR1 = TA1CCR1 - 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
 
-        
+        //ajuste do setor 2:
+
         if ((set_point2 - 15) > media_movel2 && TA1CCR2+99<=3333) //se a media movel 2 estiver abaixo do desejado
         {
             TA1CCR2 = TA1CCR2 + 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
+
         else if ((set_point2 + 15) < media_movel2 && TA1CCR2-99>=0) //se não, se a media movel 2 estiver acima do desejado
         {
             TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
