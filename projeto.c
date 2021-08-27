@@ -57,6 +57,8 @@ void main(void)
 
 }
 
+//RTI PORTA
+
 //RTI ADC
 #pragma vector=ADC10_VECTOR
 __interrupt void RTI_ADC10(void){
@@ -133,6 +135,38 @@ __interrupt void RTI_ADC10(void){
     }
 }
 
+
+// RTI da PORTA 1
+#pragma vector=PORT1_VECTOR
+__interrupt void RTI_da_Porta_1(void){
+    
+    // Passo 1: desabilita int. chaves
+    P1IE &= ~BIT6 + ~BIT7;
+
+    // Passo 2: inicia temporizador (debounce chaves)
+    TA0CCR1 = 392; // para t ~ 12 ms
+
+}
+
+// RTI da PORTA 2
+#pragma vector=PORT2_VECTOR
+__interrupt void RTI_da_Porta_2(void){
+    
+    // Passo 1: desabilita int. encoder
+    P2IE &= ~BIT0;
+
+    // Passo 2: inicia temporizador (debounce encoder)
+    TA0CCR0 = 97; // para t ~ 3 ms
+
+}
+
+}
+
+//RTI Timer 0 - Modulo 0 (finalização debounce encoder)
+#pragma vector=TIMER0_A0_VECTOR
+__interrupt void RTI_TA0 (void){
+
+}
 //RTI Timer 0
 #pragma vector=TIMER0_A0_VECTOR
 __interrupt void RTI_TA0 (void){
@@ -261,9 +295,10 @@ void ini_P1_P2(void){
     // PORTA 1
     P1DIR = ~(BIT2 + BIT4 + BIT6 + BIT7); // = BIT0 + BIT1 + BIT3 + BIT5
     P1REN = BIT6 + BIT7;
-    P1OUT = BIT6 + BIT7; //habilitando pull-up ch_on_off e ch_s_sel
-    P1IES = BIT6 + BIT7; //habilitando detecção de borda de descida ch_on_off e ch_s_sel
-    P1IFG = 0; //limpando a flag
+    P1OUT = BIT6 + BIT7; // habilitando pull-up ch_on_off e ch_s_sel
+    P1IES = BIT6 + BIT7; // habilitando detecção de borda de descida ch_on_off e ch_s_sel
+    P1IFG = 0; // limpando a flag
+    P1IE = BIT6 + BIT7; // habilitando interrupções P1.6 e P1.7
 
     // PORTA 2
     /*
@@ -276,6 +311,7 @@ void ini_P1_P2(void){
     P2OUT = BIT0 + BIT6;
     P2SEL = BIT1 + BIT4;
     P2IFG = 0;
+    P2IE = BIT0; // habilitando interrupções P2.0
 
 }
 
@@ -331,13 +367,13 @@ void ini_Timer0(void){
      */
 // Clock base Timer A0:
     TA0CTL = TASSEL0;
-// Modulo 0
+// Modulo 0 (debounce enconder)
     TA0CCTL0 = CCIE;
     TA0CCR0 = 97;
-// Modulo 1
+// Modulo 1 (debounce chaves)
     TA0CCTL1 = CCIE;
     TA0CCR1 = 392;
-// Modulo 2
+// Modulo 2 (trigger conversão)
     TA0CCTL2 = CCIE;
     TA0CCR2 = 4914;
 }
