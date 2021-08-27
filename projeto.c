@@ -186,12 +186,14 @@ __interrupt void RTI_TA0 (void){
         P2IE |= BIT0;
     }
 
-    //FINAL DEBOUNCER CHAVE ch_on_off:
+    //Finalização debounce ch_on_off:
     /*
         Verificar se a chave (ch_on_off) continua pressionada
             - Ligar ou desligar os leds e a saída PWM 
     */
-
+    //********************* A fazer ***********************************
+    //******* (função que desligue/ligue as saídas do micro) **********
+    //******* (e inicialize as variaveis/portas quando ligar) *********
     if( (~P1IN) & BIT6 ){ // Verificando se chave ch_on_off realmente foi pressionada
         if(ligado==1){
 
@@ -227,7 +229,7 @@ __interrupt void RTI_TA0 (void){
         P1IE |= BIT6; // Habilita int. do BIT6 da P1
     }
 
-    //final debouncer chave s_sel:
+    // Finalização debounce chave s_sel:
     /*
         Verificar se a chave (ch_s_sel) continua pressionada
             - Alterar o setor selecionado
@@ -245,7 +247,11 @@ __interrupt void RTI_TA0 (void){
         P1IE |= BIT7; // Habilita int. do BIT7 da P1
     }
 
-    // gatilho de conversão:
+    // Gatilho de conversão:
+    
+    // ********************** A Fazer ******************************************
+    // ****** - condição que verifique se a flag do módulo 2 Timer 0 está setada
+    // ******   (e faça o disparo da conversão no ADC10)
 	ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
 
 }
