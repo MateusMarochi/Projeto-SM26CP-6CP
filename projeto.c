@@ -1,14 +1,22 @@
 #include <msp430.h> 
 #include <stdio.h>
 
+ /* -----> Equipe 6 (21_01_G5) <-------
+ * Gabriel Junges Baratto
+ * Gabriela Pietra Pereira
+ * Mateus
+ * Leonardo Oliveira Nogueira
+ * Vinicius
+ */
+
 void ini_P1_P2(void);
 void ini_uCon(void);
 void ini_Timer0(void);
 void ini_Timer1(void);
 void ini_ADC10(void);
 
-unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2, set_point1=0, set_point2=0;
-unsigned char i=0, indice_mv=0, estagio=0;
+unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2=0, set_point1=75, set_point2=75;
+unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0;
 
 void main(void)
 {
@@ -23,24 +31,24 @@ void main(void)
     do{
         //ajuste do setor 1:
 
-        if ((set_point1 - 15) > media_movel1 && TA1CCR1+99<=3333) //se a media movel 1 estiver abaixo do desejado
+        if ((set_point1 - 15) > media_movel1 && TA1CCR1+99 <= 3333) //se a media movel 1 estiver abaixo do desejado
         {
             TA1CCR1 = TA1CCR1 + 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
 
-        else if ((set_point1 + 15) < media_movel1 && TA1CCR1-99>=0) //se não, se a media movel 1 estiver acima do desejado
+        else if ((set_point1 + 15) < media_movel1 && TA1CCR1-99 >= 0) //se não, se a media movel 1 estiver acima do desejado
         {
             TA1CCR1 = TA1CCR1 - 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
 
         //ajuste do setor 2:
 
-        if ((set_point2 - 15) > media_movel2 && TA1CCR2+99<=3333) //se a media movel 2 estiver abaixo do desejado
+        if ((set_point2 - 15) > media_movel2 && TA1CCR2+99 <= 3333) //se a media movel 2 estiver abaixo do desejado
         {
             TA1CCR2 = TA1CCR2 + 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
 
-        else if ((set_point2 + 15) < media_movel2 && TA1CCR2-99>=0) //se não, se a media movel 2 estiver acima do desejado
+        else if ((set_point2 + 15) < media_movel2 && TA1CCR2-99 >= 0) //se não, se a media movel 2 estiver acima do desejado
         {
             TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
@@ -48,6 +56,200 @@ void main(void)
     }while(1)
 
 }
+
+//RTI ADC
+#pragma vector=ADC10_VECTOR
+__interrupt void RTI_ADC10(void){
+    ADC10CTL0 &= ~ENC
+
+    //calculo da média de 8 amostras
+    soma=0;
+    for(i=0;i<8;i++)
+    {
+        soma = soma + ADC10_vetor[i];
+    }
+    media_samps = soma >> 3;
+    
+    switch(estagio)
+    {
+        case 0:
+
+            media_vector1[indice_mv]=media_samps;
+           
+            soma=0;
+
+            // Na inicialização, é utilizada a media atual (media_samps) no lugar da média móvel:
+            if(inicializacao==0){ // Se não estiver na inicialização
+                //calculo da nova media movel 1
+                for(i=0;i<16;i++)
+                {
+                    soma = soma + media_vector1[i];
+                }
+                media_movel1 = soma >> 4;
+            }
+            else{ // Se estiver inicializando
+                media_movel1 = media_samps;
+            }
+
+            //no final da amostragem de A2, é feita uma amostragem da entrada A4:
+            estagio++;
+            ADC10CTL1 &= ~INCH1;
+            ADC10CTL1 |= INCH2; 
+        
+            ADC10SA = &ADC10_vetor[0];
+            ADC10CTL0 |= ENC;
+
+            break;
+
+        case 1:
+
+            media_vector2[indice_mv]=media_samps;
+
+            //atualizando indice dos vetores de médias:
+            if(indice_mv<=14)
+                indice_mv++;
+            else
+                indice_mv=0;
+
+            soma=0;
+
+            // Na inicialização, é utilizada a media atual (media_samps) no lugar da média móvel:
+            if(inicializacao==0){ // Se não estiver na inicialização
+                //calculo da nova media movel 2
+                for(i=0;i<16;i++)
+                {
+                    soma = soma + media_vector2[i];
+                }
+                media_movel2 = soma >> 4;
+            }
+            else{ // Se estiver inicializando
+                media_movel2 = media_samps;
+                if(indice_mv==0){ // Se o vetor média foi preenchido, saimos do modo de inicialização
+                    inicializando=0;
+                }
+            }
+            break;
+
+    }
+}
+
+//RTI Timer 0
+#pragma vector=TIMER0_A0_VECTOR
+__interrupt void RTI_TA0 (void){
+	
+    // 1 - Parar temporizador
+    TA0CTL &= ~MC0;
+
+    // tratamento debouncer encoder:
+
+    /*  Tratamento debouncer encoder:
+        2 - Verificar se P2.0 esta em nivel baixo
+            - Verificar setor selecionado (P1.7)
+            - Verificar sentido de giro (P2.6)
+    */
+    if( (~P2IN) & BIT0 ){ // Verifica se entrada de Sa esta em nivel baixo
+                          // para validar tecla.
+        if((P1IN) & BIT7) // Verifica qual setor está selecionado
+        { // Setor 1   
+            if((~P2IN) & BIT6){  // Verifica sentido do passo
+                if(set_point1 >= 350){  // Sentido horario
+                    set_point1 = 350;
+                }else{
+                    set_point1 = set_point1 + 25;
+                }
+            }else{
+                if(set_point1 <= 75){  // Sentido ANTI-horario
+                    set_point1 = 75;
+                }else{
+                    set_point1 = set_point1 - 25;
+                }
+            }
+        }
+        else
+        { // Setor 2
+            if((~P2IN) & BIT6){  // Verifica sentido do passo
+                if(set_point2 >= 350){  // Sentido horario
+                    set_point2 = 350;
+                }else{
+                    set_point2 = set_point2 + 25;
+                }
+            }else{
+                if(set_point2 <= 75){  // Sentido ANTI-horario
+                    set_point2 = 75;
+                }else{
+                    set_point2 = set_point2 - 25;
+                }
+            }
+        }
+
+        P2IFG &= ~(BIT0);
+        P2IE |= BIT0;
+    }
+
+    //FINAL DEBOUNCER CHAVE ch_on_off:
+    /*
+        Verificar se a chave (ch_on_off) continua pressionada
+            - Ligar ou desligar os leds e a saída PWM 
+    */
+
+    if( (~P1IN) & BIT6 ){ // Verificando se chave ch_on_off realmente foi pressionada
+        if(ligado==1){
+
+            P2OUT &= ~(BIT2 + BIT3 + BIT7); // Tecla press. -> desliga Leds on_off, setor_1 e setor_2
+
+            TA1CTL &= ~MC0; // Pára PWM
+            TA1CCR1 = 0;
+            TA1CCR2 = 0; // Atualiza a R.C. dos PWM para 0
+
+            ADC10CTL0 &= ~ENC;
+
+            ligado=0;
+        }
+        else{
+            P2OUT |= BIT2 + BIT3; // Tecla press. -> liga Leds on_off e setor_1
+
+            setor=1; // seleção do setor 1
+            inicializando=1; // modo de inicialização do vetor de médias
+            estagio=0; // reset do estágio do ADC
+
+            ADC10CTL0 |= ENC; //habilita a conversão
+
+            indice_mv=0;
+
+            set_point1 = 75; // Resetando set_point's para o valor padrão de 75
+            set_point2 = 75;
+
+            TA1CTL |= MC0; // Inicia o contador do PWM
+
+            ligado=1;
+        }
+        P1IFG &= ~BIT6; // Limpando a flag.
+        P1IE |= BIT6; // Habilita int. do BIT6 da P1
+    }
+
+    //final debouncer chave s_sel:
+    /*
+        Verificar se a chave (ch_s_sel) continua pressionada
+            - Alterar o setor selecionado
+    */
+   if( (~P1IN) & BIT7 ){ // Verificando se chave ch_s_sel realmente foi pressionada
+
+        if(setor==1){ //Se estiver no setor 1
+            setor==2; //Alterna-se para o setor 2
+        }
+        else{ //E vice-versa:
+            setor==1;
+        }
+        
+        P1IFG &= ~BIT7; // Limpando a flag.
+        P1IE |= BIT7; // Habilita int. do BIT7 da P1
+    }
+
+    // gatilho de conversão:
+	ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
+
+}
+
 
 void ini_P1_P2(void){
     // PORTA 1
@@ -164,7 +366,7 @@ void ini_Timer1(void){
     TA1CCTL1 = OUTMOD0 + OUTMOD1 + OUTMOD2 + OUT;
     TA1CCR0 = 3332;
     TA1CCR1 = 0; //PWM1
-    TA2CCR2 = 0; //PWM2
+    TA1CCR2 = 0; //PWM2
 }
 
 void ini_ADC10 (void){
@@ -196,70 +398,3 @@ void ini_ADC10 (void){
 
 }
 
-#pragma vector=ADC10_VECTOR
-__interrupt void RTI_ADC10(void){
-    ADC10CTL0 &= ~ENC
-
-    //calculo da média de 8 amostras
-    soma=0;
-    for(i=0;i<8;i++)
-    {
-        soma = soma + ADC10_vetor[i];
-    }
-    media_samps = soma >> 3;
-    
-    switch(estagio)
-    {
-        case 0:
-
-            media_vector1[indice_mv]=media_samps;
-           
-            soma=0;
-
-            //calculo da nova media movel 1
-            for(i=0;i<16;i++)
-            {
-                soma = soma + media_vector1[i];
-            }
-            media_movel1 = soma >> 4;
-
-            //no final da amostragem de A2, é feita uma amostragem da entrada A4:
-            estagio++;
-            ADC10CTL1 &= ~INCH1;
-            ADC10CTL1 |= INCH2; 
-        
-            ADC10SA = &ADC10_vetor[0];
-            ADC10CTL0 |= ENC;
-
-            break;
-
-        case 1:
-
-            media_vector2[indice_mv]=media_samps;
-
-            //atualizando indice dos vetores de médias:
-            if(indice_mv<=14)
-                indice_mv++;
-            else
-                indice_mv=0;
-
-            soma=0;
-
-            //calculo da nova media movel 2
-            for(i=0;i<16;i++)
-            {
-                soma = soma + media_vector2[i];
-            }
-            media_movel2 = soma >> 4;
-
-            break;
-
-    }
-}
-
-#pragma vector=TIMER0_A0_VECTOR
-__interrupt void RTI_TA0 (void){
-	
-	ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
-
-}
