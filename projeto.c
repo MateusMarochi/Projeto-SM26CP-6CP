@@ -286,16 +286,16 @@ void ini_uCon(void){
     /* Config. do BCS           [[EDITAR]]
      *     VLO - Nao utilizado
      *     LFXT1 - xtal 32k
-     *     DCO ~ 8 MHz
+     *     DCO ~ 16 MHz
      *
-     *     MCLK  -> 8 MHz
-     *     SMCLK ->  4 MHz
+     *     MCLK  -> 16 MHz
+     *     SMCLK ->  8 MHz
      *     ACLK  -> 32768 Hz
      */
 
-    DCOCTL = CALDCO_1MHZ;
-    BCSCTL1 = CALBC1_1MHZ;
-    BCSCTL2 = DIVS0 + DIVS1;
+    DCOCTL = CALDCO_16MHZ;
+    BCSCTL1 = CALBC1_16MHZ;
+    BCSCTL2 = DIVS0;
     BCSCTL3 = XCAP0 + XCAP1;
     while(BCSCTL3 & LFXT1OF);
     __enable_interrupt();
