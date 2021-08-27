@@ -4,9 +4,9 @@
  /* -----> Equipe 6 (21_01_G5) <-------
  * Gabriel Junges Baratto
  * Gabriela Pietra Pereira
- * Mateus
+ * Mateus Marochi 
  * Leonardo Oliveira Nogueira
- * Vinicius
+ * Vinicius Rodrigues Frandoloso
  */
 
 void ini_P1_P2(void);
@@ -14,9 +14,15 @@ void ini_uCon(void);
 void ini_Timer0(void);
 void ini_Timer1(void);
 void ini_ADC10(void);
+void desliga_micro(void);
+void liga_micro(void);
 
-unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2=0, set_point1=75, set_point2=75;
-unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0;
+unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2=0, set_point1=75, set_point2=75, soma = 0;
+unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0, deb_ch_on=0, deb_enc_on=0, setor=1;
+
+// Inicialização dos multiplicadores de tempo base (Timer0):
+unsigned int temp_amost = 0;
+unsigned char temp_deb_ch = 0, temp_deb_enc = 0;
 
 void main(void)
 {
@@ -53,16 +59,14 @@ void main(void)
             TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
 
-    }while(1)
+    }while(1);
 
 }
-
-//RTI PORTA
 
 //RTI ADC
 #pragma vector=ADC10_VECTOR
 __interrupt void RTI_ADC10(void){
-    ADC10CTL0 &= ~ENC
+    ADC10CTL0 &= ~ENC;
 
     //calculo da média de 8 amostras
     soma=0;
@@ -70,11 +74,13 @@ __interrupt void RTI_ADC10(void){
     {
         soma = soma + ADC10_vetor[i];
     }
-    media_samps = soma >> 3;
+    media_samps = soma >> 3; // O resultado é um numero entre 0-1023
+    // convertendo a média para um valor em lumens
+    media_samps = media_samps * 500 / 1023; // Converte o resultado para lumens
     
     switch(estagio)
     {
-        case 0:
+        case 0: // Primeiro estágio, amostragem de A2
 
             media_vector1[indice_mv]=media_samps;
            
@@ -103,7 +109,7 @@ __interrupt void RTI_ADC10(void){
 
             break;
 
-        case 1:
+        case 1: // Segundo estágio, amostragem de A4
 
             media_vector2[indice_mv]=media_samps;
 
@@ -127,7 +133,7 @@ __interrupt void RTI_ADC10(void){
             else{ // Se estiver inicializando
                 media_movel2 = media_samps;
                 if(indice_mv==0){ // Se o vetor média foi preenchido, saimos do modo de inicialização
-                    inicializando=0;
+                    inicializacao=0;
                 }
             }
             break;
@@ -142,10 +148,8 @@ __interrupt void RTI_da_Porta_1(void){
     
     // Passo 1: desabilita int. chaves
     P1IE &= ~BIT6 + ~BIT7;
-
-    // Passo 2: inicia temporizador (debounce chaves)
-    TA0CCR1 = 392; // para t ~ 12 ms
-
+    // Passo 2: inicializa o debounce das chaves
+    deb_ch_on = 1;
 }
 
 // RTI da PORTA 2
@@ -154,140 +158,142 @@ __interrupt void RTI_da_Porta_2(void){
     
     // Passo 1: desabilita int. encoder
     P2IE &= ~BIT0;
-
-    // Passo 2: inicia temporizador (debounce encoder)
-    TA0CCR0 = 97; // para t ~ 3 ms
-
+    // Passo 2: inicializa o debounce do encoder
+    deb_enc_on = 1;
 }
 
-}
 
-//RTI Timer 0 - Modulo 0 (finalização debounce encoder)
-#pragma vector=TIMER0_A0_VECTOR
-__interrupt void RTI_TA0 (void){
-
-}
 //RTI Timer 0
 #pragma vector=TIMER0_A0_VECTOR
 __interrupt void RTI_TA0 (void){
-	
-    // 1 - Parar temporizador
-    TA0CTL &= ~MC0;
 
-    // tratamento debouncer encoder:
+    TA0CCTL0 &= ~CCIE;
+
 
     /*  Tratamento debouncer encoder:
-        2 - Verificar se P2.0 esta em nivel baixo
-            - Verificar setor selecionado (P1.7)
-            - Verificar sentido de giro (P2.6)
-    */
-    if( (~P2IN) & BIT0 ){ // Verifica se entrada de Sa esta em nivel baixo
-                          // para validar tecla.
-        if((P1IN) & BIT7) // Verifica qual setor está selecionado
-        { // Setor 1   
-            if((~P2IN) & BIT6){  // Verifica sentido do passo
-                if(set_point1 >= 350){  // Sentido horario
-                    set_point1 = 350;
-                }else{
-                    set_point1 = set_point1 + 25;
+     *  2 - Verificar se P2.0 esta em nivel baixo
+     *      - Verificar setor selecionado (P1.7)
+     *      - Verificar sentido de giro (P2.6)
+     */
+    if(deb_enc_on==1){ // Se estiver ativo o debounce do encoder
+
+        if(temp_deb_enc>=30){
+
+            temp_deb_enc = 0;
+            deb_enc_on = 0;
+            
+            if( (~P2IN) & BIT0 ){ // Verifica se entrada de Sa esta em nivel baixo
+                                // para validar tecla.
+                if(setor==1) // Verifica qual setor está selecionado
+                { // Setor 1   
+                    if((~P2IN) & BIT6){  // Verifica sentido do passo
+                        if(set_point1 >= 350){  // Sentido horario
+                            set_point1 = 350;
+                        }else{
+                            set_point1 = set_point1 + 25;
+                        }
+                    }else{
+                        if(set_point1 <= 75){  // Sentido ANTI-horario
+                            set_point1 = 75;
+                        }else{
+                            set_point1 = set_point1 - 25;
+                        }
+                    }
                 }
-            }else{
-                if(set_point1 <= 75){  // Sentido ANTI-horario
-                    set_point1 = 75;
-                }else{
-                    set_point1 = set_point1 - 25;
+                else
+                { // Setor 2
+                    if((~P2IN) & BIT6){  // Verifica sentido do passo
+                        if(set_point2 >= 350){  // Sentido horario
+                            set_point2 = 350;
+                        }else{
+                            set_point2 = set_point2 + 25;
+                        }
+                    }else{
+                        if(set_point2 <= 75){  // Sentido ANTI-horario
+                            set_point2 = 75;
+                        }else{
+                            set_point2 = set_point2 - 25;
+                        }
+                    }
                 }
+
+                P2IFG &= ~(BIT0);
+                P2IE |= BIT0;
             }
         }
         else
-        { // Setor 2
-            if((~P2IN) & BIT6){  // Verifica sentido do passo
-                if(set_point2 >= 350){  // Sentido horario
-                    set_point2 = 350;
-                }else{
-                    set_point2 = set_point2 + 25;
+            temp_deb_enc++;
+
+    }
+    
+    if(deb_ch_on==1){ // Se estiver ativo o debounce das chaves
+
+        if(temp_deb_ch>=120){
+
+            temp_deb_ch = 0;
+            deb_ch_on = 0;
+
+            /*  Finalização debounce chave on_off:
+             *
+             *  Verificar se a chave (ch_on_off) continua pressionada
+             *      - Desligar/Ligar as conversões e as saídas do micro
+             */
+            if((~P1IN) & BIT6){ // Se a chave ch_on_off continuar pressionada
+
+                if(ligado==1)
+                    desliga_micro();
+                else
+                    liga_micro();
+
+                P1IFG &= ~BIT6; // Limpando a flag.
+                P1IE |= BIT6; // Habilita int. do BIT6 da P1
+
+            }
+            
+            /*  Finalização debounce chave s_sel:
+             *
+             *  Verificar se a chave (ch_s_sel) continua pressionada
+             *      - Alterar o setor selecionado
+             */
+            if((~P1IN) & BIT7){ // Se a chave ch_s_sel continuar pressionada
+
+                if(setor==1){ //Se estiver no setor 1
+                    setor=2; //Alterna-se para o setor 2
+                    P2OUT |= BIT7; // liga led_setor2
+                    P2OUT &= ~BIT3; // desliga led_setor1
                 }
-            }else{
-                if(set_point2 <= 75){  // Sentido ANTI-horario
-                    set_point2 = 75;
-                }else{
-                    set_point2 = set_point2 - 25;
+                else{ //E vice-versa:
+                    setor=1;
+                    P2OUT |= BIT3; // liga led_setor1
+                    P2OUT &= ~BIT7; // desliga led_setor2
                 }
+                
+                P1IFG &= ~BIT7; // Limpando a flag.
+                P1IE |= BIT7; // Habilita int. do BIT7 da P1
+
             }
         }
-
-        P2IFG &= ~(BIT0);
-        P2IE |= BIT0;
+        else
+            temp_deb_ch++;
     }
 
-    //Finalização debounce ch_on_off:
-    /*
-        Verificar se a chave (ch_on_off) continua pressionada
-            - Ligar ou desligar os leds e a saída PWM 
-    */
-    //********************* A fazer ***********************************
-    //******* (função que desligue/ligue as saídas do micro) **********
-    //******* (e inicialize as variaveis/portas quando ligar) *********
-    if( (~P1IN) & BIT6 ){ // Verificando se chave ch_on_off realmente foi pressionada
-        if(ligado==1){
+    // Gatilho de conversão do ADC (a cada 150 ms):
 
-            P2OUT &= ~(BIT2 + BIT3 + BIT7); // Tecla press. -> desliga Leds on_off, setor_1 e setor_2
+    if(temp_amost>=1500)
+    {
+        temp_amost=0; // Reseta o contador do amostrador
+        estagio=0;
 
-            TA1CTL &= ~MC0; // Pára PWM
-            TA1CCR1 = 0;
-            TA1CCR2 = 0; // Atualiza a R.C. dos PWM para 0
+        ADC10CTL1 |= INCH1; // seleciona entrada analogica A2
+        ADC10CTL1 &= ~INCH2;
 
-            ADC10CTL0 &= ~ENC;
-
-            ligado=0;
-        }
-        else{
-            P2OUT |= BIT2 + BIT3; // Tecla press. -> liga Leds on_off e setor_1
-
-            setor=1; // seleção do setor 1
-            inicializando=1; // modo de inicialização do vetor de médias
-            estagio=0; // reset do estágio do ADC
-
-            ADC10CTL0 |= ENC; //habilita a conversão
-
-            indice_mv=0;
-
-            set_point1 = 75; // Resetando set_point's para o valor padrão de 75
-            set_point2 = 75;
-
-            TA1CTL |= MC0; // Inicia o contador do PWM
-
-            ligado=1;
-        }
-        P1IFG &= ~BIT6; // Limpando a flag.
-        P1IE |= BIT6; // Habilita int. do BIT6 da P1
+	    ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
     }
-
-    // Finalização debounce chave s_sel:
-    /*
-        Verificar se a chave (ch_s_sel) continua pressionada
-            - Alterar o setor selecionado
-    */
-   if( (~P1IN) & BIT7 ){ // Verificando se chave ch_s_sel realmente foi pressionada
-
-        if(setor==1){ //Se estiver no setor 1
-            setor==2; //Alterna-se para o setor 2
-        }
-        else{ //E vice-versa:
-            setor==1;
-        }
-        
-        P1IFG &= ~BIT7; // Limpando a flag.
-        P1IE |= BIT7; // Habilita int. do BIT7 da P1
+    else{ // Se não chegou a 1500 ainda, incrementa
+        temp_amost++;
     }
-
-    // Gatilho de conversão:
-    
-    // ********************** A Fazer ******************************************
-    // ****** - condição que verifique se a flag do módulo 2 Timer 0 está setada
-    // ******   (e faça o disparo da conversão no ADC10)
-	ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
-
+    TA0CCTL0 |= CCIE; // Habilita a int. Timer 0
+    TA0CCTL0 &= ~CCIFG; // Desliga a flag Timer 0
 }
 
 
@@ -308,7 +314,7 @@ void ini_P1_P2(void){
     */
     P2DIR = BIT1 + BIT2 + BIT3 + BIT4 + BIT7;
     P2REN = BIT0 + BIT6;
-    P2OUT = BIT0 + BIT6;
+    P2OUT = BIT0 + BIT2 + BIT3 + BIT6;
     P2SEL = BIT1 + BIT4;
     P2IFG = 0;
     P2IE = BIT0; // habilitando interrupções P2.0
@@ -319,7 +325,7 @@ void ini_uCon(void){
     //Configuração do sistema de clock.
     WDTCTL = WDTPW | WDTHOLD; // parando watchdog timer
 
-    /* Config. do BCS           [[EDITAR]]
+    /* Config. do BCS
      *     VLO - Nao utilizado
      *     LFXT1 - xtal 32k
      *     DCO ~ 16 MHz
@@ -338,44 +344,38 @@ void ini_uCon(void){
 }
 
 void ini_Timer0(void){
-    /* Inicializacao do TImer 0 para o debouncer das chaves e do encoder, e disparo
+    /* Inicializacao do Timer 0 para geração da base de tempo utilizada
+     * pelo debouncer das chaves e do encoder, e pelo disparo
      * de conversão para o ADC10 (tempo de amostragem)
      *
      * CONTADOR:
-     *      - Clock: ACLK ~ 32768Hz
+     *      - Clock: SMCLK ~ 8MHz
      *          - Fdiv: 1
-     *      - Modo contagem: UP (inicialmente ficará no modo PARADO)
+     *      - Modo contagem: UP (ligado nessa função já)
      *      - Int. do contador: desabilitada
+     * 
+     * MODULO 0:
+     *      - Tempo base 100 us -> TA0CCR0 = 8e+6 * 100e-6 - 1 = 799
+     * ----------------------------------------------
+     * Responsável por:
+     * 
+     * FUNÇÃO 1: (responsável pelo deb_encoder)
+     *      - Tempo debouncer encoder deb_enc_time = 3 ms
+     *      - Fator de mult. -> 3 ms / 100 us = 30x
      *
-     * MODULO 0: (responsável pelo deb_encoder)
-     *      - Funcao: comparacao (nativa)
-     *      - Int.: Habilitada
-     *      Tempo debouncer encoder deb_enc_time = 3 ms
-     *      - Valor para TA0CCR0: 32768 * 3e-3 - 1 = 97
+     * FUNCAO 2: (debounce das chaves)
+     *      - Tempo debouncer chaves deb_ch_time = 12 ms
+     *      - Fator de mult. -> 12 ms / 100 us = 120x
      *
-     * MODULO 1: (debounce das chaves)
-     *      - Funcao: comparacao (nativa)
-     *      - Int.: Habilitada
-     *      Tempo debouncer chaves deb_ch_time = 12 ms
-     *      - Valor para TA0CCR1: 32768 * 12e-3 - 1  = 392
-     *
-     * MODULO 2: (disparo de conversão)
-     *      - Funcao: comparacao (nativa)
-     *      - Int.: Habilitada
-     *      Tempo amostragem t_samps = 150 ms
-     *      - Valor para TA0CCR2: 4914
+     * FUNCAO 3: (disparo de conversão)
+     *      - Tempo amostragem t_samps = 150 ms
+     *      - Fator de mult. -> 150 ms / 100 us = 1500x
      */
 // Clock base Timer A0:
-    TA0CTL = TASSEL0;
-// Modulo 0 (debounce enconder)
+    TA0CTL = TASSEL1 + MC0;
+// Modulo 0 (tempo base de 100 us)
     TA0CCTL0 = CCIE;
-    TA0CCR0 = 97;
-// Modulo 1 (debounce chaves)
-    TA0CCTL1 = CCIE;
-    TA0CCR1 = 392;
-// Modulo 2 (trigger conversão)
-    TA0CCTL2 = CCIE;
-    TA0CCR2 = 4914;
+    TA0CCR0 = 799;
 }
 
 void ini_Timer1(void){
@@ -436,7 +436,38 @@ void ini_ADC10 (void){
     ADC10DTC1 = 8; //modo 8 amostras consecutivas
     ADC10SA = &ADC10_vetor[0];
     ADC10AE0 = BIT2 + BIT4;
-    ADC10CTL0 |= ENC;
+}
+
+void desliga_micro(void){
+
+    P2OUT &= ~(BIT2 + BIT3 + BIT7); // desliga todos os leds
+    TA1CCR0 = 0;
+    ADC10CTL0 &= ~(ADC10ON + ADC10IE);
+    ADC10CTL0 &= ~ENC;
+    ligado = 0;
 
 }
 
+void liga_micro(void){
+
+    P2OUT |= BIT2 + BIT3; // Tecla press. -> liga Leds on_off e setor_1
+
+    setor=1; // seleção do setor 1
+    inicializacao=1; // modo de inicialização do vetor de médias
+    estagio=0; // reset do estágio do ADC
+    
+    ADC10CTL0 |= ADC10ON + ADC10IE;
+    ADC10CTL0 |= ENC; //habilita a conversão
+
+    indice_mv=0;
+
+    set_point1 = 75; // Resetando set_point's para o valor padrão de 75
+    set_point2 = 75;
+
+    TA1CCR0 = 3332; // Inicia o contador do PWM
+    TA1CCR1 = 0; //PWM1
+    TA1CCR2 = 0; //PWM2
+
+    ligado=1;
+
+}
