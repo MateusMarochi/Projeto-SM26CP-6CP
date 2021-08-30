@@ -37,24 +37,24 @@ void main(void)
     do{
         //ajuste do setor 1:
 
-        if ((set_point1 - 15) > media_movel1 && TA1CCR1+99 <= 3333) //se a media movel 1 estiver abaixo do desejado
+        if (((set_point1 - 15) > media_movel1 ) && ((TA1CCR1+99) <= 3333)) //se a media movel 1 estiver abaixo do desejado
         {
             TA1CCR1 = TA1CCR1 + 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
 
-        else if ((set_point1 + 15) < media_movel1 && TA1CCR1-99 >= 0) //se não, se a media movel 1 estiver acima do desejado
+        else if (((set_point1 + 15) < media_movel1) && ((TA1CCR1-99) >= 0)) //se não, se a media movel 1 estiver acima do desejado
         {
             TA1CCR1 = TA1CCR1 - 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
 
         //ajuste do setor 2:
 
-        if ((set_point2 - 15) > media_movel2 && TA1CCR2+99 <= 3333) //se a media movel 2 estiver abaixo do desejado
+        if (((set_point2 - 15) > media_movel2) && ((TA1CCR2+99) <= 3333)) //se a media movel 2 estiver abaixo do desejado
         {
             TA1CCR2 = TA1CCR2 + 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
 
-        else if ((set_point2 + 15) < media_movel2 && TA1CCR2-99 >= 0) //se não, se a media movel 2 estiver acima do desejado
+        else if (((set_point2 + 15) < media_movel2) && ((TA1CCR2-99) >= 0)) //se não, se a media movel 2 estiver acima do desejado
         {
             TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
