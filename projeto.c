@@ -18,11 +18,11 @@ void desliga_micro(void);
 void liga_micro(void);
 
 unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2=0, set_point1=75, set_point2=75, soma = 0;
-unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0, deb_ch_on=0, deb_enc_on=0, setor=1;
+unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0, deb_ch_onoff_on=0, deb_ch_s_sel_on=0, deb_enc_on=0, setor=1;
 
 // Inicialização dos multiplicadores de tempo base (Timer0):
 unsigned int temp_amost = 0;
-unsigned char temp_deb_ch = 0, temp_deb_enc = 0;
+unsigned char temp_deb_ch_s_sel = 0, temp_deb_ch_onoff=0, temp_deb_enc = 0;
 
 void main(void)
 {
@@ -146,10 +146,14 @@ __interrupt void RTI_ADC10(void){
 #pragma vector=PORT1_VECTOR
 __interrupt void RTI_da_Porta_1(void){
     
-    // Passo 1: desabilita int. chaves
-    P1IE &= ~BIT6 + ~BIT7;
-    // Passo 2: inicializa o debounce das chaves
-    deb_ch_on = 1;
+    if(P1IFG & BIT6){
+        P1IE &= ~BIT6;// Passo 1: desabilita int. chaves
+        deb_ch_onoff_on = 1;// Passo 2: inicializa o debounce da chave
+    }
+    if(P1IFG & BIT7){
+        P1IE &= ~BIT7;// Passo 1: desabilita int. chaves
+        deb_ch_s_sel_on = 1;// Passo 2: inicializa o debounce da chave
+    }
 }
 
 // RTI da PORTA 2
@@ -216,22 +220,22 @@ __interrupt void RTI_TA0 (void){
                         }
                     }
                 }
-
-                P2IFG &= ~(BIT0);
-                P2IE |= BIT0;
             }
+
+            P2IFG &= ~(BIT0);
+            P2IE |= BIT0;
         }
         else
             temp_deb_enc++;
 
     }
     
-    if(deb_ch_on==1){ // Se estiver ativo o debounce das chaves
+    if(deb_ch_onoff_on==1){ // Se estiver ativo o debounce das chaves
 
-        if(temp_deb_ch>=120){
+        if(temp_deb_ch_onoff>=120){
 
-            temp_deb_ch = 0;
-            deb_ch_on = 0;
+            temp_deb_ch_onoff = 0;
+            deb_ch_onoff_on = 0;
 
             /*  Finalização debounce chave on_off:
              *
@@ -245,11 +249,19 @@ __interrupt void RTI_TA0 (void){
                 else
                     liga_micro();
 
-                P1IFG &= ~BIT6; // Limpando a flag.
-                P1IE |= BIT6; // Habilita int. do BIT6 da P1
-
             }
-            
+
+            P1IFG &= ~BIT6; // Limpando a flag.
+            P1IE |= BIT6; // Habilita int. do BIT6 da P1
+        }
+    }
+    if(deb_ch_s_sel_on==1){ // Se estiver ativo o debounce de ch_s_sel
+
+        if(temp_deb_ch_s_sel>=120){
+
+            temp_deb_ch_s_sel = 0;
+            deb_ch_s_sel_on = 0;
+
             /*  Finalização debounce chave s_sel:
              *
              *  Verificar se a chave (ch_s_sel) continua pressionada
@@ -267,11 +279,11 @@ __interrupt void RTI_TA0 (void){
                     P2OUT |= BIT3; // liga led_setor1
                     P2OUT &= ~BIT7; // desliga led_setor2
                 }
-                
-                P1IFG &= ~BIT7; // Limpando a flag.
-                P1IE |= BIT7; // Habilita int. do BIT7 da P1
 
             }
+            
+            P1IFG &= ~BIT7; // Limpando a flag.
+            P1IE |= BIT7; // Habilita int. do BIT7 da P1
         }
         else
             temp_deb_ch++;
