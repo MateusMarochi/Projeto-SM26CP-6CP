@@ -309,13 +309,13 @@ void ini_P1_P2(void){
     // PORTA 2
     /*
     Entradas: 0, 5 e 6 (0 e 6 com pull up)
-    Saídas: 1, 2, 3, 4, 7 (todas em nível baixo)
+    Saídas: 1, 2, 3, 4, 7 (2 e 3 em nível alto, outras em nível baixo)
     Mudança de função dos pinos 2.1, 2.4, 2.6 e 2.7
     */
     P2DIR = BIT1 + BIT2 + BIT3 + BIT4 + BIT7;
     P2REN = BIT0 + BIT6;
     P2OUT = BIT0 + BIT2 + BIT3 + BIT6;
-    P2SEL = BIT1 + BIT4;
+    P2SEL = BIT1 + BIT4 + BIT6 + BIT7;
     P2IFG = 0;
     P2IE = BIT0; // habilitando interrupções P2.0
 
