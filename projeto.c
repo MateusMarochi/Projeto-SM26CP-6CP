@@ -317,8 +317,15 @@ __interrupt void RTI_TA0 (void){
 
 void ini_P1_P2(void){
     // PORTA 1
+    /*
+    Entradas: 2, 4, 6 e 7
+        - pull-up (1.6 e 1.7)
+        - inter. habilitada (1.6 e 1.7) -> borda descida
+    Saídas: 0, 1, 3 e 5 (todas nivel baixo)
+
+    */
     P1DIR = ~(BIT2 + BIT4 + BIT6 + BIT7); // = BIT0 + BIT1 + BIT3 + BIT5
-    P1REN = BIT6 + BIT7;
+    P1REN = BIT6 + BIT7; // pull-up (1.6 e 1.7)
     P1OUT = BIT6 + BIT7; // habilitando pull-up ch_on_off e ch_s_sel
     P1IES = BIT6 + BIT7; // habilitando detecção de borda de descida ch_on_off e ch_s_sel
     P1IFG = 0; // limpando a flag
@@ -326,16 +333,18 @@ void ini_P1_P2(void){
 
     // PORTA 2
     /*
-    Entradas: 0, 5 e 6 (0 e 6 com pull up)
+    Entradas: 0 e 6 (ambas com pull up)
     Saídas: 1, 2, 3, 4, 7 (2 e 3 em nível alto, outras em nível baixo)
-    Mudança de função dos pinos 2.1, 2.4, 2.6 e 2.7
+    Mudança de função dos pinos:
+        - 2.1 e 2.4 p/ TA1.1 e TA1.2, respec.
+        - 2.6 e 2.7 p/ modo E/S (P2SEL.x = 0)
     */
-    P2DIR = BIT1 + BIT2 + BIT3 + BIT4 + BIT7;
-    P2REN = BIT0 + BIT6;
-    P2OUT = BIT0 + BIT2 + BIT3 + BIT6;
-    P2SEL = BIT1 + BIT4;
-    P2IFG = 0;
-    P2IE = BIT0; // habilitando interrupções P2.0
+    P2DIR = ~(BIT0 + BIT6); // todos menos 2.0 e 2.6 são saídas
+    P2REN = BIT0 + BIT6; // pull-up(2.0 e 2.6)
+    P2OUT = BIT0 + BIT2 + BIT3 + BIT6; // pull-up (2.0 e 2.6) e leds que iniciam ligados (2.2 e 2.3)
+    P2SEL = BIT1 + BIT4; // 2.1 e 2.4 -> TA1.1 e TA1.2
+    P2IFG = 0; // zerando flags
+    P2IE = BIT0; // habilitando interrupções P2.0 (ch_enc_a)
 
 }
 
