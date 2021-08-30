@@ -9,6 +9,10 @@
  * Vinicius Rodrigues Frandoloso
  */
 
+/* Ver com o professor:
+ - PWM Timer 1: Saída 2 do PWM não funciona
+ - RTI ADC: Mesmo com a entrada entre 0 - 2,5V, o adc não converte, ADC10_vetor preenchido com zeros
+
 void ini_P1_P2(void);
 void ini_uCon(void);
 void ini_Timer0(void);
@@ -37,7 +41,7 @@ void main(void)
     do{
         //ajuste do setor 1:
 
-        if (((set_point1 - 15) > media_movel1 ) && ((TA1CCR1+99) <= 3333)) //se a media movel 1 estiver abaixo do desejado
+        if (((set_point1 - 15) > media_movel1 ) && ((TA1CCR1+99) <= 3332)) //se a media movel 1 estiver abaixo do desejado
         {
             TA1CCR1 = TA1CCR1 + 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
         }
@@ -49,7 +53,7 @@ void main(void)
 
         //ajuste do setor 2:
 
-        if (((set_point2 - 15) > media_movel2) && ((TA1CCR2+99) <= 3333)) //se a media movel 2 estiver abaixo do desejado
+        if (((set_point2 - 15) > media_movel2) && ((TA1CCR2+99) <= 3332)) //se a media movel 2 estiver abaixo do desejado
         {
             TA1CCR2 = TA1CCR2 + 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
         }
@@ -105,7 +109,7 @@ __interrupt void RTI_ADC10(void){
             ADC10CTL1 |= INCH2; 
         
             ADC10SA = &ADC10_vetor[0];
-            ADC10CTL0 |= ENC;
+            ADC10CTL0 |= ENC + ADC10SC; // Dispara a conversão para A4
 
             break;
 
@@ -254,6 +258,8 @@ __interrupt void RTI_TA0 (void){
             P1IFG &= ~BIT6; // Limpando a flag.
             P1IE |= BIT6; // Habilita int. do BIT6 da P1
         }
+        else
+            temp_deb_ch_onoff++;
     }
     if(deb_ch_s_sel_on==1){ // Se estiver ativo o debounce de ch_s_sel
 
@@ -286,7 +292,7 @@ __interrupt void RTI_TA0 (void){
             P1IE |= BIT7; // Habilita int. do BIT7 da P1
         }
         else
-            temp_deb_ch++;
+            temp_deb_ch_s_sel++;
     }
 
     // Gatilho de conversão do ADC (a cada 150 ms):
@@ -327,7 +333,7 @@ void ini_P1_P2(void){
     P2DIR = BIT1 + BIT2 + BIT3 + BIT4 + BIT7;
     P2REN = BIT0 + BIT6;
     P2OUT = BIT0 + BIT2 + BIT3 + BIT6;
-    P2SEL = BIT1 + BIT4 + BIT6 + BIT7;
+    P2SEL = BIT1 + BIT4;
     P2IFG = 0;
     P2IE = BIT0; // habilitando interrupções P2.0
 
@@ -351,7 +357,7 @@ void ini_uCon(void){
     BCSCTL1 = CALBC1_16MHZ;
     BCSCTL2 = DIVS0;
     BCSCTL3 = XCAP0 + XCAP1;
-    while(BCSCTL3 & LFXT1OF);
+    //while(BCSCTL3 & LFXT1OF);
     __enable_interrupt();
 }
 
@@ -453,6 +459,8 @@ void ini_ADC10 (void){
 void desliga_micro(void){
 
     P2OUT &= ~(BIT2 + BIT3 + BIT7); // desliga todos os leds
+    P1IE &= ~(BIT6 + BIT7); // desabilitando interrupções porta 1
+    P2IE &= ~(BIT0); // desabilitando int. porta 2
     TA1CCR0 = 0;
     ADC10CTL0 &= ~(ADC10ON + ADC10IE);
     ADC10CTL0 &= ~ENC;
@@ -463,7 +471,9 @@ void desliga_micro(void){
 void liga_micro(void){
 
     P2OUT |= BIT2 + BIT3; // Tecla press. -> liga Leds on_off e setor_1
-
+    P1IE |= BIT6 + BIT7; // habilitando int. porta 1
+    P2IE |= BIT0;// habilitando int. porta 2
+    
     setor=1; // seleção do setor 1
     inicializacao=1; // modo de inicialização do vetor de médias
     estagio=0; // reset do estágio do ADC
