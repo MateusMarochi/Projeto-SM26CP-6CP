@@ -18,7 +18,7 @@ void desliga_micro(void);
 void liga_micro(void);
 
 unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2=0, set_point1=75, set_point2=75, soma = 0;
-unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0, deb_ch_onoff_on=0, deb_ch_s_sel_on=0, deb_enc_on=0, setor=1;
+unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=1, deb_ch_onoff_on=0, deb_ch_s_sel_on=0, deb_enc_on=0, setor=1;
 
 float aux = 0.0;
 
@@ -38,27 +38,30 @@ void main(void)
      */
     do{
         //ajuste do setor 1:
+        if( ligado==1){
 
-        if (((set_point1 - 15) > media_movel1 ) && ((TA1CCR1+99) <= 3332)) //se a media movel 1 estiver abaixo do desejado
-        {
-            TA1CCR1 = TA1CCR1 + 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
-        }
+            if (((set_point1 - 15) > media_movel1 ) && ((TA1CCR1+99) <= 3332)) //se a media movel 1 estiver abaixo do desejado
+            {
+                TA1CCR1 = TA1CCR1 + 99; //aumenta-se a r.c. do PWM 1 (e assim a alimentação do led 1)
+            }
 
-        else if (((set_point1 + 15) < media_movel1) && ((TA1CCR1-99) >= 0)) //se não, se a media movel 1 estiver acima do desejado
-        {
-            TA1CCR1 = TA1CCR1 - 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
-        }
+            else if (((set_point1 + 15) < media_movel1) && ((TA1CCR1) >= 99)) //se não, se a media movel 1 estiver acima do desejado
+            {
+                TA1CCR1 = TA1CCR1 - 99; //diminui-se a r.c. do PWM 1 (e assim a alimentação do led 1)
+            }
 
-        //ajuste do setor 2:
+            //ajuste do setor 2:
 
-        if (((set_point2 - 15) > media_movel2) && ((TA1CCR2+99) <= 3332)) //se a media movel 2 estiver abaixo do desejado
-        {
-            TA1CCR2 = TA1CCR2 + 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
-        }
+            if (((set_point2 - 15) > media_movel2) && ((TA1CCR2+99) <= 3332)) //se a media movel 2 estiver abaixo do desejado
+            {
+                TA1CCR2 = TA1CCR2 + 99; //aumenta-se a r.c. do PWM 2 (e assim a alimentação do led 2)
+            }
 
-        else if (((set_point2 + 15) < media_movel2) && ((TA1CCR2-99) >= 0)) //se não, se a media movel 2 estiver acima do desejado
-        {
-            TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
+            else if (((set_point2 + 15) < media_movel2) && ((TA1CCR2) >= 99)) //se não, se a media movel 2 estiver acima do desejado
+            {
+                TA1CCR2 = TA1CCR2 - 99; //diminui-se a r.c. do PWM 2 (e assim a alimentação do led 2)
+            }
+
         }
 
     }while(1);
@@ -462,10 +465,14 @@ void desliga_micro(void){
     P2OUT &= ~(BIT2 + BIT3 + BIT7); // desliga todos os leds
     P1IE &= ~(BIT6 + BIT7); // desabilitando interrupções porta 1
     P2IE &= ~(BIT0); // desabilitando int. porta 2
-    TA1CCR0 = 0;
+
+    TA1CCR1 = 0; //Reset PWM1
+    TA1CCR2 = 0; //Reset PWM2
+
     ADC10CTL0 &= ~(ADC10ON + ADC10IE);
     ADC10CTL0 &= ~ENC;
-    ligado = 0;
+
+    ligado = 0; // estado -> ligado
 
 }
 
@@ -487,10 +494,6 @@ void liga_micro(void){
     set_point1 = 75; // Resetando set_point's para o valor padrão de 75
     set_point2 = 75;
 
-    TA1CCR0 = 3332; // Inicia o contador do PWM
-    TA1CCR1 = 0; //PWM1
-    TA1CCR2 = 0; //PWM2
-
-    ligado=1;
+    ligado=1; // estado -> ligado
 
 }
