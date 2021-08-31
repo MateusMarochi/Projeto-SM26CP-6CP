@@ -4,14 +4,10 @@
  /* -----> Equipe 6 (21_01_G5) <-------
  * Gabriel Junges Baratto
  * Gabriela Pietra Pereira
- * Mateus Marochi 
+ * Mateus Marochi
  * Leonardo Oliveira Nogueira
  * Vinicius Rodrigues Frandoloso
  */
-
-/* Ver com o professor:
- - PWM Timer 1: Saída 2 do PWM não funciona
- - RTI ADC: Mesmo com a entrada entre 0 - 2,5V, o adc não converte, ADC10_vetor preenchido com zeros
 
 void ini_P1_P2(void);
 void ini_uCon(void);
@@ -23,6 +19,8 @@ void liga_micro(void);
 
 unsigned int ADC10_vetor[8], media_vector1[16], media_vector2[16], media_samps=0, media_movel1=0, media_movel2=0, set_point1=75, set_point2=75, soma = 0;
 unsigned char i=0, indice_mv=0, estagio=0, inicializacao=1,ligado=0, deb_ch_onoff_on=0, deb_ch_s_sel_on=0, deb_enc_on=0, setor=1;
+
+float aux = 0.0;
 
 // Inicialização dos multiplicadores de tempo base (Timer0):
 unsigned int temp_amost = 0;
@@ -80,14 +78,15 @@ __interrupt void RTI_ADC10(void){
     }
     media_samps = soma >> 3; // O resultado é um numero entre 0-1023
     // convertendo a média para um valor em lumens
-    media_samps = media_samps * 500 / 1023; // Converte o resultado para lumens
-    
+    aux = (float)(media_samps * 0.48876);
+    media_samps = (unsigned int)aux; // Converte o resultado para lumens
+
     switch(estagio)
     {
         case 0: // Primeiro estágio, amostragem de A2
 
             media_vector1[indice_mv]=media_samps;
-           
+
             soma=0;
 
             // Na inicialização, é utilizada a media atual (media_samps) no lugar da média móvel:
@@ -104,10 +103,10 @@ __interrupt void RTI_ADC10(void){
             }
 
             //no final da amostragem de A2, é feita uma amostragem da entrada A4:
-            estagio++;
+            estagio=1;
             ADC10CTL1 &= ~INCH1;
-            ADC10CTL1 |= INCH2; 
-        
+            ADC10CTL1 |= INCH2;
+
             ADC10SA = &ADC10_vetor[0];
             ADC10CTL0 |= ENC + ADC10SC; // Dispara a conversão para A4
 
@@ -140,6 +139,7 @@ __interrupt void RTI_ADC10(void){
                     inicializacao=0;
                 }
             }
+            estagio = 0;
             break;
 
     }
@@ -149,7 +149,7 @@ __interrupt void RTI_ADC10(void){
 // RTI da PORTA 1
 #pragma vector=PORT1_VECTOR
 __interrupt void RTI_da_Porta_1(void){
-    
+
     if(P1IFG & BIT6){
         P1IE &= ~BIT6;// Passo 1: desabilita int. chaves
         deb_ch_onoff_on = 1;// Passo 2: inicializa o debounce da chave
@@ -163,7 +163,7 @@ __interrupt void RTI_da_Porta_1(void){
 // RTI da PORTA 2
 #pragma vector=PORT2_VECTOR
 __interrupt void RTI_da_Porta_2(void){
-    
+
     // Passo 1: desabilita int. encoder
     P2IE &= ~BIT0;
     // Passo 2: inicializa o debounce do encoder
@@ -175,7 +175,7 @@ __interrupt void RTI_da_Porta_2(void){
 #pragma vector=TIMER0_A0_VECTOR
 __interrupt void RTI_TA0 (void){
 
-    TA0CCTL0 &= ~CCIE;
+    // TA0CCTL0 &= ~CCIE;
 
 
     /*  Tratamento debouncer encoder:
@@ -189,11 +189,11 @@ __interrupt void RTI_TA0 (void){
 
             temp_deb_enc = 0;
             deb_enc_on = 0;
-            
+
             if( (~P2IN) & BIT0 ){ // Verifica se entrada de Sa esta em nivel baixo
                                 // para validar tecla.
                 if(setor==1) // Verifica qual setor está selecionado
-                { // Setor 1   
+                { // Setor 1
                     if((~P2IN) & BIT6){  // Verifica sentido do passo
                         if(set_point1 >= 350){  // Sentido horario
                             set_point1 = 350;
@@ -233,7 +233,7 @@ __interrupt void RTI_TA0 (void){
             temp_deb_enc++;
 
     }
-    
+
     if(deb_ch_onoff_on==1){ // Se estiver ativo o debounce das chaves
 
         if(temp_deb_ch_onoff>=120){
@@ -287,7 +287,7 @@ __interrupt void RTI_TA0 (void){
                 }
 
             }
-            
+
             P1IFG &= ~BIT7; // Limpando a flag.
             P1IE |= BIT7; // Habilita int. do BIT7 da P1
         }
@@ -300,32 +300,25 @@ __interrupt void RTI_TA0 (void){
     if(temp_amost>=1500)
     {
         temp_amost=0; // Reseta o contador do amostrador
-        estagio=0;
+        // estagio=0;
 
         ADC10CTL1 |= INCH1; // seleciona entrada analogica A2
         ADC10CTL1 &= ~INCH2;
-
-	    ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
+        ADC10SA = &ADC10_vetor[0];
+        ADC10CTL0 |= ENC + ADC10SC; // Fornece o disparo de conversão por software.
     }
     else{ // Se não chegou a 1500 ainda, incrementa
         temp_amost++;
     }
-    TA0CCTL0 |= CCIE; // Habilita a int. Timer 0
-    TA0CCTL0 &= ~CCIFG; // Desliga a flag Timer 0
+    // TA0CCTL0 |= CCIE; // Habilita a int. Timer 0
+    // TA0CCTL0 &= ~CCIFG; // Desliga a flag Timer 0
 }
 
 
 void ini_P1_P2(void){
     // PORTA 1
-    /*
-    Entradas: 2, 4, 6 e 7
-        - pull-up (1.6 e 1.7)
-        - inter. habilitada (1.6 e 1.7) -> borda descida
-    Saídas: 0, 1, 3 e 5 (todas nivel baixo)
-
-    */
     P1DIR = ~(BIT2 + BIT4 + BIT6 + BIT7); // = BIT0 + BIT1 + BIT3 + BIT5
-    P1REN = BIT6 + BIT7; // pull-up (1.6 e 1.7)
+    P1REN = BIT6 + BIT7;
     P1OUT = BIT6 + BIT7; // habilitando pull-up ch_on_off e ch_s_sel
     P1IES = BIT6 + BIT7; // habilitando detecção de borda de descida ch_on_off e ch_s_sel
     P1IFG = 0; // limpando a flag
@@ -333,18 +326,17 @@ void ini_P1_P2(void){
 
     // PORTA 2
     /*
-    Entradas: 0 e 6 (ambas com pull up)
+    Entradas: 0, 5 e 6 (0 e 6 com pull up)
     Saídas: 1, 2, 3, 4, 7 (2 e 3 em nível alto, outras em nível baixo)
-    Mudança de função dos pinos:
-        - 2.1 e 2.4 p/ TA1.1 e TA1.2, respec.
-        - 2.6 e 2.7 p/ modo E/S (P2SEL.x = 0)
+    Mudança de função dos pinos 2.1, 2.4, 2.6 e 2.7
     */
-    P2DIR = ~(BIT0 + BIT6); // todos menos 2.0 e 2.6 são saídas
-    P2REN = BIT0 + BIT6; // pull-up(2.0 e 2.6)
-    P2OUT = BIT0 + BIT2 + BIT3 + BIT6; // pull-up (2.0 e 2.6) e leds que iniciam ligados (2.2 e 2.3)
-    P2SEL = BIT1 + BIT4; // 2.1 e 2.4 -> TA1.1 e TA1.2
-    P2IFG = 0; // zerando flags
-    P2IE = BIT0; // habilitando interrupções P2.0 (ch_enc_a)
+    P2DIR = BIT1 + BIT2 + BIT3 + BIT4 + BIT7;
+    P2REN = BIT0 + BIT6;
+    P2OUT = BIT0 + BIT2 + BIT3 + BIT6;
+    P2SEL = BIT1 + BIT4;
+    P2SEL &= ~(BIT6);
+    P2IFG = 0;
+    P2IE = BIT0; // habilitando interrupções P2.0
 
 }
 
@@ -380,12 +372,12 @@ void ini_Timer0(void){
      *          - Fdiv: 1
      *      - Modo contagem: UP (ligado nessa função já)
      *      - Int. do contador: desabilitada
-     * 
+     *
      * MODULO 0:
      *      - Tempo base 100 us -> TA0CCR0 = 8e+6 * 100e-6 - 1 = 799
      * ----------------------------------------------
      * Responsável por:
-     * 
+     *
      * FUNÇÃO 1: (responsável pelo deb_encoder)
      *      - Tempo debouncer encoder deb_enc_time = 3 ms
      *      - Fator de mult. -> 3 ms / 100 us = 30x
@@ -426,8 +418,8 @@ void ini_Timer1(void){
      *      - Int.: desabilitada
      *      - Modo de saida: 7 (reset/set)
      *      - TA0CCR1 = 0;
-     * 
-     * 
+     *
+     *
      * CÁLCULO PASSO PWM:
      *      - delta_pwm = 3% de 3333 => passo = 0,03 * 3333 - 1 = 99
      */
@@ -439,7 +431,7 @@ void ini_Timer1(void){
 }
 
 void ini_ADC10 (void){
-    
+
     /* Inicializacao do ADC10
      *
      *   - Clock: ADC10OSC = 6,13 MHz
@@ -457,8 +449,8 @@ void ini_ADC10 (void){
      *
      */
 
-    ADC10CTL0 = SREF0 + ADC10SHT0 + ADC10SHT1 + REF2_5V + REFON + ADC10ON + ADC10IE;
-    ADC10CTL1 = INCH1 + SHS0; //inicialmente a entrada A2 é selecionada
+    ADC10CTL0 = SREF0 + ADC10SHT0 + ADC10SHT1 + REF2_5V + REFON + ADC10ON + ADC10IE + MSC;
+    ADC10CTL1 = INCH1 + CONSEQ1; //inicialmente a entrada A2 é selecionada
     ADC10DTC0 = 0;
     ADC10DTC1 = 8; //modo 8 amostras consecutivas
     ADC10SA = &ADC10_vetor[0];
@@ -482,11 +474,11 @@ void liga_micro(void){
     P2OUT |= BIT2 + BIT3; // Tecla press. -> liga Leds on_off e setor_1
     P1IE |= BIT6 + BIT7; // habilitando int. porta 1
     P2IE |= BIT0;// habilitando int. porta 2
-    
+
     setor=1; // seleção do setor 1
     inicializacao=1; // modo de inicialização do vetor de médias
     estagio=0; // reset do estágio do ADC
-    
+
     ADC10CTL0 |= ADC10ON + ADC10IE;
     ADC10CTL0 |= ENC; //habilita a conversão
 
